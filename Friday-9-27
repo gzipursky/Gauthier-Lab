@@ -1,0 +1,31 @@
+% Gillian Zipursky %
+% 9/27/19 %
+
+%Choose params (ROIs, paths, which frames)
+imagePath= '/Users/GillianZipursky/Downloads/J100_2014-05-26_L01.tif'; %set image path
+frameStart= 1; %Set start frame
+frameEnd=200; %Set end frame
+ROIs = [7 17 30 42; 9 13 124 136];
+%Initialize variables
+meanOverTime = zeros(); %initialize variable to store mean
+%loop over frames (f)
+for f = frameStart:frameEnd
+    %load this image
+    frame = double(imread(imagePath,f));
+    %figure(1);clf
+    %loop over ROIs (r)
+    for r = 1:size(ROIs,1)
+        %compute mean
+        R = ROIs(r,:); %create a matrix that contains all of the columns of a given row
+        vals = frame(R(1):R(2),R(3):R(4)); %create a matrix that contains x and y values
+        TheMean = mean(vals(:)); %compute the mean of those values
+        %store mean
+        meanOverTime(f,r)= TheMean;
+    end %end
+end %end
+
+plot(meanOverTime(1:200,1))
+hold on
+plot(meanOverTime(1:200,2))
+xlabel('Time')
+ylabel('F')
