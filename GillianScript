@@ -1,0 +1,100 @@
+imagePath= '/Users/GillianZipursky/Downloads/J100_2014-05-26_L01.tif'; %set image path
+%%set up variables
+%set time parameters
+startTime= 86; %set beginning of timeframe
+endTime= 114; %set end of timeframe
+whichFrames= startTime:endTime; %define time range
+%set space parameters
+ROI= [7 122 15 138]; % define region of neuron with x and y coordinate of top left and bottom right
+neuronMatrix= zeros(); %set up an empty matrix
+nY= ROI(3)-ROI(1)+1; %height of region of interest
+nX= ROI(4)-ROI(2)+1;%width of region of interest
+hugeMatrix= NaN(nY,nX,endTime-startTime+1);
+%%loop through all of the time frames and collect spatial data in a matrix
+for tt= 1:length(whichFrames) %make indices 1 to the length of the time frame
+    frame= double(imread(imagePath, whichFrames(tt)));%read image for each time frame
+    neuronMatrix= frame(ROI(1):ROI(3),ROI(2):ROI(4));%create a matrix with fluorescence for each pixel of ROI
+    hugeMatrix(:,:,tt)= neuronMatrix; %create 3D matrix that is the space matrix over time frames
+end
+%%Run PCA 
+linearizedvector= reshape(hugeMatrix,nY*nX,length(whichFrames));%reshape 3D matrix to 2D matrix with columns pixel and rows time frames
+coeff= pca(linearizedvector'); %run PCA on transposed 2D matrix
+pcaMatrix= reshape(coeff(:,1), nY, nX); %reshape matrix to have 1st pca value for each pixel in a YxX matrix
+
+%% plot result
+
+figure(131);clf %create new figure
+imagesc(pcaMatrix) %get image of final matrix
+axis image
+%colormap gray
+
+% make colormap
+V = linspace(0,1,101)';
+C = flipud([ones(101,1) V V; flipud(V(1:end-1)) flipud(V(1:end-1)) ones(100,1)]);
+colormap(C)
+caxis([-1 1]*max(abs(pcaMatrix(:))))
+
+%% verify hugeMatrix is the right part of the movie
+
+figure;plot(squeeze(sum(sum(hugeMatrix))))
+
+figure;for tt=1:size(hugeMatrix,3);cla;imagesc(hugeMatrix(:,:,tt));caxis([min(hugeMatrix(:)) max(hugeMatrix(:))]);pause(0.1);end
+
+%% Find Observed Baseline
+%%set up variables
+%set time parameters
+startBaseline= 60; %set beginning of timeframe
+endBaseline= 85; %set end of timeframe
+whichFramesBaseline= startBaseline:endBaseline; %define time range
+%set space parameters
+ROI= [7 122 15 138]; % define region of neuron with x and y coordinate of top left and bottom right
+BaselineMatrix= zeros(); %set up an empty matrix
+baselineY= ROI(3)-ROI(1)+1; %height of region of interest
+baselineX= ROI(4)-ROI(2)+1;%width of region of interest
+hugeBaseline= NaN(nY,nX,endBaseline-startBaseline+1);
+%Loop through each frame and get the baseline fluorescence
+for ss= 1:length(whichFramesBaseline) %make indices 1 to the length of the time frame
+    frame= double(imread(imagePath, whichFramesBaseline(ss)));%read image for each time frame
+    BaselineMatrix= frame(ROI(1):ROI(3),ROI(2):ROI(4));%create a matrix with fluorescence for each pixel of ROI
+    hugeBaseline(:,:,ss)= BaselineMatrix; %create 3D matrix that is the space matrix over time frames
+end
+linearizedBaseline= reshape(hugeBaseline,baselineY*baselineX,length(whichFramesBaseline));%reshape 3D matrix to 2D matrix with columns pixel and rows time frames
+meanBaselineMatrix= zeros(); %create empty matrix for mean baseline value of pixels
+numberPixels= baselineY*baselineX;
+for k = 1:numberPixels %loop through all of the pixels
+    mean= 0;
+    for j= 1:length(whichFramesBaseline) %loop through all of the frames
+        mean= mean + linearizedBaseline(k,j); %add the baseline value of a pixel at each frame to mean
+    end
+    mean= mean/(endBaseline-startBaseline); %divide cumulative baseline values for each pixel by number of frames
+    meanBaselineMatrix(k)= mean; %basline matrix composed of the average pixel fluorescence over a range of time
+end
+baselineImage= reshape(meanBaselineMatrix, baselineY, baselineX); %reshape the vector into a matrix that lines up spatially 
+figure(23);clf
+imagesc(baselineImage) %view the baseline values of each of the images
+
+%% Find Points that Correspond to Cell Shape
+
+figure(137);clf
+plot(pcaMatrix,baselineImage,'.') %plot the pca values vs baseline values
+
+xvalues = [3 3 2 2 3 3 2 1 1 2 3 4 4 4 3]; %manually found x values corresponding to linear portion of above plot
+yvalues = [10 9 10 9 11 8 11 10 9 8 7 8 7 6 6]; %manually found y values corresponding to linear poriton of above plot
+
+fluorval= zeros(size(frame)); %make a new matrix as big as ROI
+
+for int = 1:length(xvalues) %loop through values from 1 to number of linear points
+    pointx(int)= ROI(1)+xvalues(int); %define vector with the actual location of points in original image
+    pointy(int)= ROI(2)+yvalues(int); 
+    fluorval(pointx(int),pointy(int))= frame(xvalues(int),yvalues(int)); %define matrix that just has values for cell area
+end
+
+figure(53);clf
+imagesc(fluorval)
+    
+%% 
+%%pixelID= (pointx-ROI(1)).*(pointy-ROI(2)); %define pixel as a single number that is the index in meanBaseline vector
+%%meanBaselineCell= meanBaselineMatrix(pixelID); %find baseline value of pixels in cell
+%%withoutBackGround= fluorval-meanBaselineCell; %define 
+%%figure42;clf
+%%imagesc(withoutBackground)
